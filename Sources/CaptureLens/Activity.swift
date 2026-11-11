@@ -35,6 +35,14 @@ final class ActivityStore {
         ActivitySync.shared.localDidChange()
     }
 
+    #if DEBUG
+    /// Made-up history, for the demo video.
+    func debugRecord(_ key: String, count: Int, at date: Date) {
+        log.record(key, count: count, at: date)
+        save()
+    }
+    #endif
+
     /// A capture was saved: counted by its kind.
     func recordCapture(_ kind: CaptureItem.Kind, scrolling: Bool = false, steps: Bool = false) {
         let key: String = if steps { ActivityKey.steps } else if scrolling { ActivityKey.scrolling } else {

@@ -117,6 +117,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
             DebugHelpTest.run(snapshot: snapshot, delegate: self)
             return
         }
+        if let trace = ProcessInfo.processInfo.environment["CAPTURELENS_DEBUG_DEMO"] {
+            DemoStage.run(trace: trace)
+            return
+        }
         if let out = ProcessInfo.processInfo.environment["CAPTURELENS_DEBUG_SHOTS"] {
             DebugShots.run(out: URL(fileURLWithPath: out))
             return
