@@ -26,6 +26,21 @@ struct HotKey: Codable, Equatable {
         display = Self.symbols(flags) + Self.name(for: event)
     }
 
+    /// Builds one from a key code and Carbon modifiers (ShortcutsLens's Change Shortcut), named
+    /// the way a key press would be in the current keyboard layout. Nil without ⌘ ⌥ or ⌃.
+    init?(keyCode: Int, carbonModifiers: Int) {
+        let mods = UInt32(carbonModifiers) & UInt32(controlKey | optionKey | shiftKey | cmdKey)
+        guard mods & UInt32(controlKey | optionKey | cmdKey) != 0, (0...127).contains(keyCode) else { return nil }
+        var flags: NSEvent.ModifierFlags = []
+        if mods & UInt32(controlKey) != 0 { flags.insert(.control) }
+        if mods & UInt32(optionKey) != 0 { flags.insert(.option) }
+        if mods & UInt32(shiftKey) != 0 { flags.insert(.shift) }
+        if mods & UInt32(cmdKey) != 0 { flags.insert(.command) }
+        self.keyCode = UInt32(keyCode)
+        modifiers = mods
+        display = Self.symbols(flags) + Self.name(keyCode: keyCode, characters: Self.layoutCharacter(keyCode))
+    }
+
     /// Whether a key press is this shortcut.
     func matches(keyCode: UInt16, flags: NSEvent.ModifierFlags) -> Bool {
         UInt32(keyCode) == self.keyCode
@@ -62,7 +77,10 @@ struct HotKey: Codable, Equatable {
     }
 
     private static func name(for event: NSEvent) -> String {
-        let code = Int(event.keyCode)
+        name(keyCode: Int(event.keyCode), characters: event.charactersIgnoringModifiers)
+    }
+
+    private static func name(keyCode code: Int, characters: String?) -> String {
         if let f = fKeys[code] { return "F\(f)" }
         switch code {
         case kVK_Return: return "↩"
@@ -73,7 +91,24 @@ struct HotKey: Codable, Equatable {
         case kVK_RightArrow: return "→"
         case kVK_UpArrow: return "↑"
         case kVK_DownArrow: return "↓"
-        default: return (event.charactersIgnoringModifiers ?? "?").uppercased()
+        default: return (characters ?? "?").uppercased()
+        }
+    }
+
+    /// What the key types with no modifiers in the current layout ("t" for kVK_ANSI_T on QWERTY).
+    private static func layoutCharacter(_ keyCode: Int) -> String? {
+        guard let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
+              let pointer = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData) else { return nil }
+        let data = Unmanaged<CFData>.fromOpaque(pointer).takeUnretainedValue() as Data
+        return data.withUnsafeBytes { raw -> String? in
+            guard let layout = raw.baseAddress?.assumingMemoryBound(to: UCKeyboardLayout.self) else { return nil }
+            var dead: UInt32 = 0
+            var chars = [UniChar](repeating: 0, count: 4)
+            var length = 0
+            let status = UCKeyTranslate(layout, UInt16(keyCode), UInt16(kUCKeyActionDisplay), 0, UInt32(LMGetKbdType()),
+                                        OptionBits(kUCKeyTranslateNoDeadKeysBit), &dead, chars.count, &length, &chars)
+            guard status == noErr, length > 0 else { return nil }
+            return String(utf16CodeUnits: chars, count: length)
         }
     }
 
@@ -143,14 +178,81 @@ final class HotKeyCenter {
             guard registered.contains(action) else { return nil }
             let id: String, title: String, category: String?
             switch action {
-            case .library: (id, title, category) = ("library", "Open the library", nil)
-            case .captureAgain: (id, title, category) = ("captureAgain", "Capture the same area again", nil)
-            case .captureText: (id, title, category) = ("captureText", "Capture text", nil)
-            case .captureBar: (id, title, category) = ("captureBar", "Show or hide the capture bar", nil)
+            case .library: (id, title, category) = ("library", self.title(of: action), nil)
+            case .captureAgain: (id, title, category) = ("captureAgain", self.title(of: action), nil)
+            case .captureText: (id, title, category) = ("captureText", self.title(of: action), nil)
+            case .captureBar: (id, title, category) = ("captureBar", self.title(of: action), nil)
             case .preset(let uuid):
                 (id, title, category) = ("preset-\(uuid.uuidString)", prefs.preset(uuid)?.name ?? "Preset", "Presets")
             }
             return .init(id: id, title: title, keyCode: Int(key.keyCode), carbonModifiers: Int(key.modifiers), category: category)
+        }
+    }
+
+    /// ShortcutsLens's Change Shortcut: saves the keys as the Settings recorder does (so Settings
+    /// shows them and sync carries them) and registers again. Nil when done, or why not.
+    func change(id: String, keyCode: Int, carbonModifiers: Int) -> String? {
+        let prefs = Preferences.shared
+        let action: Action
+        switch id {
+        case "library": action = .library
+        case "captureAgain": action = .captureAgain
+        case "captureText": action = .captureText
+        case "captureBar": action = .captureBar
+        default:
+            guard id.hasPrefix("preset-"), let uuid = UUID(uuidString: String(id.dropFirst("preset-".count))),
+                  prefs.preset(uuid) != nil else { return "SnagAnything has no shortcut called \(id)." }
+            action = .preset(uuid)
+        }
+        guard let key = HotKey(keyCode: keyCode, carbonModifiers: carbonModifiers) else {
+            return "SnagAnything shortcuts need ⌘, ⌥ or ⌃."
+        }
+        if let other = bindings.first(where: { $0.0 != action && $0.1.keyCode == key.keyCode && $0.1.modifiers == key.modifiers }) {
+            return "SnagAnything already uses \(key.display) for \(title(of: other.0))."
+        }
+        let previous = hotKey(for: action)
+        save(key, for: action)
+        apply()
+        guard !actions.values.contains(action) else { return nil }
+        // Taken by another app: keep the old keys rather than leave the shortcut dead.
+        save(previous, for: action)
+        apply()
+        return "\(key.display) is taken by another app, so SnagAnything kept \(previous?.display ?? "no shortcut")."
+    }
+
+    private func hotKey(for action: Action) -> HotKey? {
+        let prefs = Preferences.shared
+        switch action {
+        case .library: return prefs.libraryHotKey
+        case .captureAgain: return prefs.captureAgainHotKey
+        case .captureText: return prefs.captureTextHotKey
+        case .captureBar: return prefs.captureBarHotKey
+        case .preset(let uuid): return prefs.preset(uuid)?.hotKey
+        }
+    }
+
+    /// Writes the same settings the Settings recorders do.
+    private func save(_ key: HotKey?, for action: Action) {
+        let prefs = Preferences.shared
+        switch action {
+        case .library: prefs.libraryHotKey = key
+        case .captureAgain: prefs.captureAgainHotKey = key
+        case .captureText: prefs.captureTextHotKey = key
+        case .captureBar: prefs.captureBarHotKey = key
+        case .preset(let uuid):
+            guard var preset = prefs.preset(uuid) else { return }
+            preset.hotKey = key
+            prefs.update(preset)
+        }
+    }
+
+    private func title(of action: Action) -> String {
+        switch action {
+        case .library: return "Open the library"
+        case .captureAgain: return "Capture the same area again"
+        case .captureText: return "Capture text"
+        case .captureBar: return "Show or hide the capture bar"
+        case .preset(let uuid): return Preferences.shared.preset(uuid)?.name ?? "a preset"
         }
     }
 
