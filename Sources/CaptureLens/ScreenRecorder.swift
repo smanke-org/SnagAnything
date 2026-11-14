@@ -311,8 +311,7 @@ final class ScreenRecorder: NSObject {
             ActivityStore.shared.record(ActivityKey.video)
             ActivityStore.shared.record(ActivityKey.recordingSeconds, count: Int(duration.rounded()))
             Sounds.shutter()
-            let after = preset?.afterCapture ?? Preferences.shared.afterCapture
-            if after.opensLibrary || after == .preview || after == .previewAndLibrary { LibraryWindow.shared.show(select: item.id) }
+            if Preferences.shared.opensLibraryAfterCapture { LibraryWindow.shared.show(select: item.id) }
             Notice.shared.show("Recording saved", symbol: "video", near: frame)
         } catch {
             NSLog("SnagAnything: couldn't save the recording: \(error.localizedDescription)")

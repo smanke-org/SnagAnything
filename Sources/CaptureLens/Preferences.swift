@@ -20,8 +20,10 @@ enum AfterCapture: String, Codable, CaseIterable {
     var showsPreview: Bool { self == .preview || self == .previewAndLibrary }
     var opensLibrary: Bool { self == .openLibrary || self == .previewAndLibrary }
 
-    /// The same choice with the library opening too (holding ⌥), keeping a preview if it had one.
-    var openingLibrary: AfterCapture { showsPreview ? .previewAndLibrary : .openLibrary }
+    /// What a preset can choose: a preview or not. Opening the library is the app-wide setting's
+    /// call alone, so older presets that chose the library keep just their preview part.
+    var presetChoice: AfterCapture { showsPreview ? .preview : .nothing }
+    static let presetChoices: [AfterCapture] = [.preview, .nothing]
 }
 
 /// Where the library syncs through. The same on every Mac (a synced setting), so a capture
@@ -251,7 +253,10 @@ struct CapturePreset: Codable, Identifiable, Equatable {
     var height: Int
     var clipboard: ClipboardChoice
     /// What happens once it's saved; nil follows Capture settings.
-    var afterCapture: AfterCapture?
+    /// A preview or not (nil: as in Capture settings). Never the library: see `presetChoice`.
+    var afterCapture: AfterCapture? {
+        didSet { if let choice = afterCapture?.presetChoice, choice != afterCapture { afterCapture = choice } }
+    }
     var hotKey: HotKey?
 
     init(id: UUID = UUID(), name: String, mode: CaptureMode, delay: Int = 0, width: Int = 1280, height: Int = 720,
@@ -263,7 +268,7 @@ struct CapturePreset: Codable, Identifiable, Equatable {
         self.width = width
         self.height = height
         self.clipboard = clipboard
-        self.afterCapture = afterCapture
+        self.afterCapture = afterCapture?.presetChoice
         self.hotKey = hotKey
     }
 
@@ -276,7 +281,7 @@ struct CapturePreset: Codable, Identifiable, Equatable {
         width = try c.decodeIfPresent(Int.self, forKey: .width) ?? 1280
         height = try c.decodeIfPresent(Int.self, forKey: .height) ?? 720
         clipboard = try c.decodeIfPresent(ClipboardChoice.self, forKey: .clipboard) ?? .setting
-        afterCapture = try c.decodeIfPresent(AfterCapture.self, forKey: .afterCapture)
+        afterCapture = try c.decodeIfPresent(AfterCapture.self, forKey: .afterCapture)?.presetChoice
         hotKey = try c.decodeIfPresent(HotKey.self, forKey: .hotKey)
     }
 
@@ -290,10 +295,8 @@ struct CapturePreset: Codable, Identifiable, Equatable {
         case .setting: break
         }
         switch afterCapture {
-        case .openLibrary: parts.append("opens in library")
-        case .previewAndLibrary: parts.append("preview + library")
-        case .preview: parts.append("shows preview")
-        case .nothing: parts.append("no preview")
+        case .preview, .previewAndLibrary: parts.append("shows preview")
+        case .nothing, .openLibrary: parts.append("no preview")
         case nil: break
         }
         return parts.joined(separator: " · ")
@@ -330,6 +333,8 @@ final class Preferences {
     /// Each new capture also goes on the clipboard.
     var copyToClipboard = true { didSet { save(copyToClipboard, "copyToClipboard") } }
     var afterCapture = AfterCapture.preview { didSet { save(afterCapture.rawValue, "afterCapture") } }
+    /// "Open Captures in Library": the one switch that opens the library after a capture or recording.
+    var opensLibraryAfterCapture: Bool { afterCapture.opensLibrary }
     /// Keep the mouse pointer as a separate layer (hidden or shown later).
     var captureCursor = true { didSet { save(captureCursor, "captureCursor") } }
     /// New captures start with the pointer showing.

@@ -228,6 +228,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
             MainActor.assumeIsolated {
                 guard NSApp.isActive, AppPresence.showInDock, NSApp.modalWindow == nil,
                       !CaptureOverlay.shared.isSelecting, !CaptureEngine.shared.isBusy,
+                      Date().timeIntervalSince(CaptureOverlay.shared.lastClosed) > 2,
                       !NSApp.windows.contains(where: { $0.isVisible && !($0 is NSPanel) && $0.canBecomeMain })
                 else { return }
                 self?.showLibrary()

@@ -79,7 +79,12 @@ final class CaptureOverlay {
         for view in views { view.needsDisplay = true }
     }
 
+    /// When the overlay last went away. Its own activation of SnagAnything can land after that,
+    /// and must not be taken for a ⌘-Tab to the app (which opens the library).
+    private(set) var lastClosed = Date.distantPast
+
     fileprivate func finish(_ pick: Pick?) {
+        lastClosed = Date()
         for window in windows { window.orderOut(nil) }
         windows.removeAll()
         views.removeAll()
@@ -107,7 +112,7 @@ final class CaptureOverlay {
         if let customPrompt { return customPrompt }
         if forRecording { return "Click a window or drag over an area to record  ·  Return for the whole screen  ·  Esc to cancel" }
         return switch mode {
-        case .allInOne, .scrolling, .recording: "Click a window or drag over an area  ·  Return for the whole screen  ·  Hold ⌥ to open it"
+        case .allInOne, .scrolling, .recording: "Click a window or drag over an area  ·  Return for the whole screen  ·  Esc to cancel"
         case .region: "Drag over the area to capture"
         case .window: "Click the window to capture"
         case .fixedSize: "Click to capture \(Int(fixedSize.width)) × \(Int(fixedSize.height))"
@@ -283,7 +288,6 @@ private final class OverlayView: NSView {
 
     override func mouseUp(with event: NSEvent) {
         defer { start = nil; current = nil; dragging = false }
-        CaptureEngine.shared.optionHeld = event.modifierFlags.contains(.option)
         if let rect = dragRect {
             guard rect.width >= 3, rect.height >= 3 else { return owner.finish(nil) }
             return finishRegion(rect)
@@ -316,7 +320,6 @@ private final class OverlayView: NSView {
         switch event.keyCode {
         case 53: owner.finish(nil) // Esc
         case 36, 76: // Return, Enter: the whole screen under the pointer
-            CaptureEngine.shared.optionHeld = event.modifierFlags.contains(.option)
             if owner.mode == .allInOne || owner.mode == .screen {
                 if NSMouseInRect(owner.pointer, screen.frame, false) { finishScreen() }
                 else { (NSApp.windows.compactMap { $0.contentView as? OverlayView }.first { $0.containsPointer })?.finishScreen() }

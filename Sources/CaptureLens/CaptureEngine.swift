@@ -12,9 +12,6 @@ final class CaptureEngine {
     private var busy = false { didSet { CaptureBar.shared.refresh() } }
     /// A capture is under way, from the countdown until it's saved.
     var isBusy: Bool { busy }
-    /// ⌥ was down when the area or window was picked (it may be up by the time it's saved).
-    var optionHeld = false
-
     #if DEBUG
     /// Stands in for a capture under way, for testing the capture bar.
     func debugSetBusy(_ on: Bool) { busy = on }
@@ -135,7 +132,6 @@ final class CaptureEngine {
 
     private func capture(_ preset: CapturePreset) async {
         let prefs = Preferences.shared
-        optionHeld = false
         // The pointer as it was before the overlay took over, and the windows as they were.
         let cursor = prefs.captureCursor ? CursorSnapshot.current() : nil
         let windows = ScreenWindow.onScreen()
@@ -244,15 +240,13 @@ final class CaptureEngine {
         let clipboard = preset?.clipboard ?? .setting
         let copy = clipboard == .always || (clipboard == .setting && prefs.copyToClipboard)
         if copy, let png = Flattener.png(item) { Clipboard.copy(png: png) }
-        // Holding ⌥ while picking the area or window opens this one in the library, whatever
-        // the settings. (Not ⌥ held now: the default shortcuts include it.)
-        let chosen = preset?.afterCapture ?? prefs.afterCapture
-        let after = optionHeld ? chosen.openingLibrary : chosen
-        optionHeld = false
-        if after.opensLibrary { LibraryWindow.shared.show(select: item.id) }
+        // The library opens only when "Open Captures in Library" is on: never from a preset,
+        // a modifier key or anything else. A preset only picks preview or not.
+        let after = preset?.afterCapture ?? prefs.afterCapture
+        if prefs.opensLibraryAfterCapture { LibraryWindow.shared.show(select: item.id) }
         // After the library, so the preview floats over it.
         if after.showsPreview { CapturePreview.shared.show(item, near: frame, copied: copy) }
-        if after == .nothing && copy { Notice.shared.show("Saved and copied", symbol: "camera.viewfinder", near: frame) }
+        if !after.showsPreview && copy { Notice.shared.show("Saved and copied", symbol: "camera.viewfinder", near: frame) }
     }
 }
 

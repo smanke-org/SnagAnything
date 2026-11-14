@@ -57,8 +57,10 @@ final class StepRecorder {
                 LibraryWindow.shared.show(select: recorded.last)
                 LibraryWindow.shared.state.guide = GuideRequest(items: recorded, title: title.replacingOccurrences(of: "Steps ", with: "How To · "),
                                                                 template: .steps)
-            } else {
+            } else if Preferences.shared.opensLibraryAfterCapture {
                 LibraryWindow.shared.show(select: recorded.last)
+            } else {
+                Notice.shared.show("Saved \(recorded.count) step\(recorded.count == 1 ? "" : "s") to the library", symbol: "record.circle")
             }
         }
     }
