@@ -1,3 +1,4 @@
+import Carbon.HIToolbox
 import AppKit
 import CryptoKit
 import Foundation
@@ -664,6 +665,11 @@ enum DebugCommands {
                 // down and up (with C between when `key`, as when the keys reach SnagAnything);
                 // reports whether the "nothing came through" hint shows and the button's title.
                 result = await shortcutHintTest(withKey: arg == "key")
+            case "shortcut-editor":
+                // `shortcut-editor:<png path>`: opens the first preset's shortcut editor, checks
+                // typing "+" (⇧ + "="), then presses the library's keys there and sets them, so they
+                // move. Saves a picture of the editor.
+                result = await shortcutEditorTest(shot: arg)
             case "drag-sidebar":
                 // `drag-sidebar:<x>`: drags the sidebar's edge to x points from the window's left;
                 // reports the sidebar's width after.
@@ -1114,6 +1120,47 @@ enum DebugCommands {
             result = "error: \(error.localizedDescription)"
         }
         AppDefaults.store.set("\(line) -> \(result)", forKey: "debug.lastCommand")
+    }
+
+    private static func shortcutEditorTest(shot: String) async -> String {
+        func recorders(in view: NSView) -> [ShortcutRecorder.RecorderButton] {
+            ((view as? ShortcutRecorder.RecorderButton).map { [$0] } ?? []) + view.subviews.flatMap(recorders)
+        }
+        let prefs = Preferences.shared
+        guard let window = SettingsWindow.shared.debugWindow, let content = window.contentView,
+              let button = recorders(in: content).first else { return "no shortcut recorder in Settings" }
+        button.performClick(nil)
+        try? await Task.sleep(for: .milliseconds(300))
+        guard let model = button.debugModel else { return "editor did not open" }
+        var out: [String] = []
+        model.typed("+")
+        out.append("plus→\(model.keyText) shift \(model.shift) combo \(model.combo?.display ?? "-") problem \(model.problem ?? "-")")
+        model.control = false; model.option = false; model.shift = false; model.command = false
+        model.typed("k")
+        out.append("bare k problem: \(model.problem ?? "-")")
+        model.choose(Int(kVK_F6))
+        out.append("F6 alone: \(model.combo?.display ?? "-") problem \(model.problem ?? "-")")
+        guard let lib = prefs.libraryHotKey else { return out.joined(separator: "; ") + "; no library key" }
+        var flags: NSEvent.ModifierFlags = []
+        if lib.modifiers & UInt32(controlKey) != 0 { flags.insert(.control) }
+        if lib.modifiers & UInt32(optionKey) != 0 { flags.insert(.option) }
+        if lib.modifiers & UInt32(shiftKey) != 0 { flags.insert(.shift) }
+        if lib.modifiers & UInt32(cmdKey) != 0 { flags.insert(.command) }
+        if let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0,
+                                        windowNumber: window.windowNumber, context: nil, characters: "",
+                                        charactersIgnoringModifiers: "", isARepeat: false, keyCode: UInt16(lib.keyCode)) {
+            _ = model.handle(event)
+        }
+        out.append("pressed \(model.combo?.display ?? "-") moves from \(model.movesFrom)")
+        try? await Task.sleep(for: .milliseconds(300))
+        if !shot.isEmpty, let view = button.debugPopoverView, let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+            view.cacheDisplay(in: view.bounds, to: rep)
+            try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: shot))
+        }
+        model.finish?(.set(model.combo))
+        try? await Task.sleep(for: .milliseconds(300))
+        out.append("after set: first preset \(prefs.presets.first?.hotKey?.display ?? "none"), library \(prefs.libraryHotKey?.display ?? "none"), title \(button.debugTitle)")
+        return out.joined(separator: "; ")
     }
 
     private static func shortcutHintTest(withKey: Bool) async -> String {

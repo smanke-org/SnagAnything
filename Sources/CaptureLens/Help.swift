@@ -143,7 +143,7 @@ enum Help {
                 ("{hotkey:bar}", "Show or hide the capture bar"),
                 ("⌘?", "This Help, from SnagAnything's menus"),
             ]),
-            .text("Click a shortcut, then press the new keys. Delete clears it; shortcuts need ⌘, ⌥ or ⌃. Right-click a preset to duplicate, delete or try it."),
+            .text("Click a shortcut to open its editor: turn on the modifier keys (⌃ ⌥ ⇧ ⌘), type a letter, number or symbol, or pick Space, an arrow or an F-key from the keyboard menu — or just press the shortcut. Shortcuts need ⌘, ⌥ or ⌃, except F-keys. If another SnagAnything shortcut has the keys, they move to this one and the other is cleared. Clear removes a shortcut. Right-click a preset to duplicate, delete or try it."),
         ]),
 
         HelpTopic(id: "annotate", title: "Annotating", symbol: "pencil.and.outline", blocks: [

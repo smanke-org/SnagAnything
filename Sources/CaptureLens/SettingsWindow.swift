@@ -259,7 +259,7 @@ struct CaptureSettings: View {
                 }
                 .pickerStyle(.segmented)
                 .disabled(!prefs.showCaptureBar)
-                LabeledContent("Show or hide it with") { ShortcutRecorder(hotKey: $prefs.captureBarHotKey) }
+                LabeledContent("Show or hide it with") { ShortcutRecorder(hotKey: $prefs.captureBarHotKey, action: .captureBar) }
             } header: {
                 Text("Capture bar")
             } footer: {
@@ -380,7 +380,7 @@ struct PresetSettings: View {
                             guard var p = prefs.preset(preset.id) else { return }
                             p.hotKey = key
                             prefs.update(p)
-                        }))
+                        }), action: .preset(preset.id))
                         Button { editing = preset } label: { Image(systemName: "pencil") }
                             .buttonStyle(.borderless)
                             .help("Edit this preset")
@@ -408,14 +408,14 @@ struct PresetSettings: View {
             } header: {
                 Text("Capture presets")
             } footer: {
-                Text("The first preset is the Capture button's. Drag to reorder; right-click for more. Click a shortcut, then press the new keys. Delete clears it, Esc cancels.")
+                Text("The first preset is the Capture button's. Drag to reorder; right-click for more. Click a shortcut to set it: pick the modifier keys and type a key, or press the shortcut. Keys another shortcut has are moved here.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Other shortcuts") {
-                LabeledContent("Open the library") { ShortcutRecorder(hotKey: $prefs.libraryHotKey) }
-                LabeledContent("Capture the same area again") { ShortcutRecorder(hotKey: $prefs.captureAgainHotKey) }
-                LabeledContent("Capture text") { ShortcutRecorder(hotKey: $prefs.captureTextHotKey) }
-                LabeledContent("Show or hide the capture bar") { ShortcutRecorder(hotKey: $prefs.captureBarHotKey) }
+                LabeledContent("Open the library") { ShortcutRecorder(hotKey: $prefs.libraryHotKey, action: .library) }
+                LabeledContent("Capture the same area again") { ShortcutRecorder(hotKey: $prefs.captureAgainHotKey, action: .captureAgain) }
+                LabeledContent("Capture text") { ShortcutRecorder(hotKey: $prefs.captureTextHotKey, action: .captureText) }
+                LabeledContent("Show or hide the capture bar") { ShortcutRecorder(hotKey: $prefs.captureBarHotKey, action: .captureBar) }
             }
         }
         .formStyle(.grouped)
@@ -478,7 +478,7 @@ struct PresetEditor: View {
                     Divider()
                     ForEach(AfterCapture.presetChoices, id: \.self) { Text($0.title).tag($0 as AfterCapture?) }
                 }
-                LabeledContent("Shortcut") { ShortcutRecorder(hotKey: $preset.hotKey) }
+                LabeledContent("Shortcut") { ShortcutRecorder(hotKey: $preset.hotKey, action: .preset(preset.id)) }
                 Text(help).font(.caption).foregroundStyle(.secondary)
             }
             .formStyle(.grouped)
