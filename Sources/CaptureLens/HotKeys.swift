@@ -94,6 +94,12 @@ struct HotKey: Codable, Equatable {
         case kVK_RightArrow: return "→"
         case kVK_UpArrow: return "↑"
         case kVK_DownArrow: return "↓"
+        case kVK_Delete: return "⌫"
+        case kVK_ForwardDelete: return "⌦"
+        case kVK_Home: return "↖"
+        case kVK_End: return "↘"
+        case kVK_PageUp: return "⇞"
+        case kVK_PageDown: return "⇟"
         default: return (characters ?? "?").uppercased()
         }
     }

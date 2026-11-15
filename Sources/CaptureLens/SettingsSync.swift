@@ -1138,8 +1138,14 @@ enum DebugCommands {
         model.control = false; model.option = false; model.shift = false; model.command = false
         model.typed("k")
         out.append("bare k problem: \(model.problem ?? "-")")
+        model.typed("=")
+        out.append("equals→\(model.keyText) code \(model.keyCode ?? -1)")
         model.choose(Int(kVK_F6))
-        out.append("F6 alone: \(model.combo?.display ?? "-") problem \(model.problem ?? "-")")
+        model.typed("F6")
+        out.append("F6 alone: \(model.combo?.display ?? "-") box \(model.keyText) problem \(model.problem ?? "-")")
+        model.choose(Int(kVK_Home))
+        out.append("home box \(model.keyText)")
+        model.choose(Int(kVK_F6))
         guard let lib = prefs.libraryHotKey else { return out.joined(separator: "; ") + "; no library key" }
         var flags: NSEvent.ModifierFlags = []
         if lib.modifiers & UInt32(controlKey) != 0 { flags.insert(.control) }
@@ -1159,7 +1165,7 @@ enum DebugCommands {
         }
         model.finish?(.set(model.combo))
         try? await Task.sleep(for: .milliseconds(300))
-        out.append("after set: first preset \(prefs.presets.first?.hotKey?.display ?? "none"), library \(prefs.libraryHotKey?.display ?? "none"), title \(button.debugTitle)")
+        out.append("popover gone \(button.debugModel == nil); after set: first preset \(prefs.presets.first?.hotKey?.display ?? "none"), library \(prefs.libraryHotKey?.display ?? "none"), title \(button.debugTitle)")
         return out.joined(separator: "; ")
     }
 
