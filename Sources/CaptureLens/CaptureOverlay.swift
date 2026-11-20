@@ -37,12 +37,15 @@ final class CaptureOverlay {
 
     /// Shows the overlay and waits for a pick; nil if cancelled with Esc.
     /// - Parameter prompt: the hint at the top, in place of the mode's own.
-    func pick(mode: CaptureMode, fixedSize: CGSize, images: [CGDirectDisplayID: CGImage], prompt: String? = nil) async -> Pick? {
+    /// - Parameter recording: picking for a video with `mode`'s own way of picking (the quick
+    ///   palette's Record Area, Record Window and Record Screen).
+    func pick(mode: CaptureMode, fixedSize: CGSize, images: [CGDirectDisplayID: CGImage], prompt: String? = nil,
+              recording: Bool = false) async -> Pick? {
         guard !isSelecting else { return nil }
         isSelecting = true
         defer { isSelecting = false }
         customPrompt = prompt
-        forRecording = mode == .recording
+        forRecording = mode == .recording || recording
         let mode: CaptureMode = mode == .recording ? .allInOne : mode
         self.mode = mode
         self.fixedSize = fixedSize
@@ -110,6 +113,9 @@ final class CaptureOverlay {
 
     fileprivate var prompt: String {
         if let customPrompt { return customPrompt }
+        if forRecording && mode == .region { return "Drag over the area to record  ·  Esc to cancel" }
+        if forRecording && mode == .window { return "Click the window to record  ·  Esc to cancel" }
+        if forRecording && mode == .screen { return "Click the screen to record  ·  Esc to cancel" }
         if forRecording { return "Click a window or drag over an area to record  ·  Return for the whole screen  ·  Esc to cancel" }
         return switch mode {
         case .allInOne, .scrolling, .recording: "Click a window or drag over an area  ·  Return for the whole screen  ·  Esc to cancel"

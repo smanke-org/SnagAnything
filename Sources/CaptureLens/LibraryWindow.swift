@@ -612,6 +612,10 @@ struct LibraryToolbar: ToolbarContent {
             RecordButton()
             Button { CaptureActions.captureText() } label: { Label("Capture Text", systemImage: "text.viewfinder") }
                 .help("Capture Text: drag over text on screen to copy it\(CaptureActions.keys(Preferences.shared.captureTextHotKey))")
+            Button { QuickPalette.shared.show() } label: {
+                Label("Quick Palette", systemImage: "square.grid.3x1.below.line.grid.1x2")
+            }
+            .help("Show the quick palette of capture tools; hold ⌥ for video\(CaptureActions.keys(Preferences.shared.paletteHotKey))")
         }
         if state.showPresetButtons {
             ToolbarItemGroup(placement: .navigation) {

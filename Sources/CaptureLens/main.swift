@@ -184,6 +184,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         #endif
 
         CaptureBar.shared.start()
+        PaletteMouseTrigger.shared.apply()
         AutoUpdater.shared.start()
         // Sync is on but waiting for a passphrase (joining another Mac): say so where it
         // can be entered, once per version.
@@ -274,6 +275,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         case "text": engine.captureText()
         case "library": showLibrary()
         case "capturebar": toggleCaptureBar()
+        case "palette": QuickPalette.shared.show()
         case "preset":
             let name = url.pathComponents.dropFirst().joined(separator: "/")
             if let preset = presets.first(where: { $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame }) {
@@ -285,6 +287,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         }
     }
 
+    @objc private func showQuickPalette() {
+        // From the menu: the pointer is on the menu, so wait for it to close.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { QuickPalette.shared.show() }
+    }
+
     private func perform(_ action: HotKeyCenter.Action) {
         switch action {
         case .preset(let id): if let preset = Preferences.shared.preset(id) { engine.run(preset) }
@@ -292,6 +299,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
         case .captureText: engine.captureText()
         case .library: showLibrary()
         case .captureBar: toggleCaptureBar()
+        case .palette: QuickPalette.shared.toggle()
         }
     }
 
@@ -359,6 +367,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenu
             bar.keyEquivalentModifierMask = shortcut.mask
         }
         menu.addItem(bar.showIcon("rectangle.split.3x1"))
+        menu.addItem(item("Show Quick Palette", #selector(showQuickPalette), hotKey: prefs.paletteHotKey).showIcon("square.grid.3x1.below.line.grid.1x2"))
 
         menu.addItem(.separator())
         menu.addItem(item("Open Library…", #selector(showLibrary), hotKey: prefs.libraryHotKey).showIcon("photo.on.rectangle"))

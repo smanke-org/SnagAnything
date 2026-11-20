@@ -41,7 +41,7 @@ enum Help {
         let keys: [(String, HotKey?)] = [
             ("capture", preset(0)), ("screen", preset(1)), ("window", preset(2)),
             ("library", p.libraryHotKey), ("again", p.captureAgainHotKey), ("text", p.captureTextHotKey), ("scrolling", preset(4)),
-            ("bar", p.captureBarHotKey),
+            ("bar", p.captureBarHotKey), ("palette", p.paletteHotKey),
             ("record", p.preset(CapturePreset.defaults[5].id)?.hotKey ?? p.presets.first { $0.mode == .recording }?.hotKey),
         ]
         var out = text
@@ -115,6 +115,18 @@ enum Help {
             .tip("Text keeps its line breaks, so tables and lists paste the way they looked. If nothing was found, try a bigger area or zoom in first."),
         ]),
 
+        HelpTopic(id: "quick-palette", title: "The Quick Palette", symbol: "square.grid.3x1.below.line.grid.1x2", blocks: [
+            .text("The quick palette is a small row of capture tools that opens right beside the pointer. Open it with ⌃⌥⌘-right-click anywhere, its shortcut (set in Settings › Capture; now {hotkey:palette}), or Show Quick Palette in the menu bar menu. Allow SnagAnything in Privacy & Security › Accessibility so the right-click doesn't also open the app's own menu."),
+            .keys([
+                ("⌃⌥⌘-right-click", "Open it; or hold the button, point at a tool and let go"),
+                ("1–5", "Capture Area, Capture Window, Capture Text, Capture Full Screen, Open Library"),
+                ("Hold ⌥", "Switch to Record Area, Record Window, Record Screen and Open Library"),
+                ("← → and Return", "Pick a tool from the keyboard"),
+                ("Esc or click elsewhere", "Close the palette"),
+            ]),
+            .tip("Prefer one motion? In Settings › Capture, set Choose a tool to Hold the shortcut, release over a tool: hold the shortcut, point at a tool and let go."),
+        ]),
+
         HelpTopic(id: "capture-bar", title: "The Capture Bar", symbol: "menubar.rectangle", blocks: [
             .text("The capture bar keeps SnagAnything's capture buttons above every window, on every Space and over full-screen apps. Turn it on with Show Capture Bar in the menu bar menu or the View menu, Settings › Capture, or its shortcut ({hotkey:bar})."),
             .keys([
@@ -141,6 +153,7 @@ enum Help {
                 ("{hotkey:again}", "Capture the same area again"),
                 ("{hotkey:text}", "Capture Text: copy the text in an area"),
                 ("{hotkey:bar}", "Show or hide the capture bar"),
+                ("{hotkey:palette}", "Show the quick palette at the pointer"),
                 ("⌘?", "This Help, from SnagAnything's menus"),
             ]),
             .text("Click a shortcut to open its editor: turn on the modifier keys (⌃ ⌥ ⇧ ⌘), type a letter, number or symbol, or pick Space, an arrow or an F-key from the keyboard menu — or just press the shortcut. Shortcuts need ⌘, ⌥ or ⌃, except F-keys. If another SnagAnything shortcut has the keys, they move to this one and the other is cleared. Clear removes a shortcut. Right-click a preset to duplicate, delete or try it."),
@@ -320,6 +333,7 @@ enum Help {
                 ("snaganything://text", "Capture Text: copy the text in an area"),
                 ("snaganything://library", "Open the library"),
                 ("snaganything://capturebar", "Show or hide the capture bar"),
+                ("snaganything://palette", "Show the quick palette at the pointer"),
                 ("snaganything://preset/<name>", "Run a preset by its name"),
             ]),
             .text("Use these links from Shortcuts, scripts or a launcher. Links starting capturelens://, from before SnagAnything was renamed, still work. ToolHUD's SnagAnything buttons use them. Pictures dropped on SnagAnything's Dock icon are added to the library."),

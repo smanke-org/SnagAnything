@@ -123,6 +123,21 @@ struct CaptureBarPosition: Codable, Equatable {
     var y: Double
 }
 
+/// How a tool in the quick palette is chosen.
+enum PaletteChoosing: String, CaseIterable {
+    /// The palette stays up; click a tool (or press its number).
+    case click
+    /// Hold the shortcut, point at a tool, let go. A quick press leaves it up for a click.
+    case holdAndRelease
+
+    var title: String {
+        switch self {
+        case .click: "Click a tool"
+        case .holdAndRelease: "Hold the shortcut, release over a tool"
+        }
+    }
+}
+
 /// What opens the radial dial over the picture.
 enum DialTrigger: String, CaseIterable {
     case rightClick, commandOption, either
@@ -422,6 +437,13 @@ final class Preferences {
     var captureTextHotKey: HotKey? = Defaults.captureTextHotKey { didSet { saveCodable(captureTextHotKey, "captureTextHotKey") } }
     /// Shows or hides the capture bar.
     var captureBarHotKey: HotKey? = nil { didSet { saveCodable(captureBarHotKey, "captureBarHotKey") } }
+    /// Shows the quick palette at the pointer.
+    var paletteHotKey: HotKey? = nil { didSet { saveCodable(paletteHotKey, "paletteHotKey") } }
+    var paletteChoosing = PaletteChoosing.click { didSet { save(paletteChoosing.rawValue, "paletteChoosing") } }
+    /// ⌃⌥⌘-right-click also opens the quick palette.
+    var paletteRightClick = true { didSet { save(paletteRightClick, "paletteRightClick")
+        // Later: this runs while Preferences.shared is still being made, and apply() reads it.
+        DispatchQueue.main.async { PaletteMouseTrigger.shared.apply() } } }
 
     enum Defaults {
         static let libraryHotKey: HotKey? = HotKey(keyCode: UInt32(kVK_ANSI_L), modifiers: UInt32(optionKey | shiftKey | cmdKey),
@@ -437,7 +459,7 @@ final class Preferences {
         "captureTextHotKey", "recordMicrophone", "recordSystemAudio", "recordCamera", "showClicks", "showKeys", "recordFrameRate", "syncVideos",
         "toolStyle", "dialTrigger", "dialLayout", "doubleClickOpens", "clickShows", "recordCountdown", "microphoneID", "cameraID", "confirmQuit",
         "showCaptureBar", "captureBarLayout", "captureBarPosition", "captureBarHotKey",
-        "captureBarSize", "captureBarColors", "captureBarLook",
+        "captureBarSize", "captureBarColors", "captureBarLook", "paletteHotKey", "paletteChoosing", "paletteRightClick",
     ]
     /// Of those, the ones each Mac chooses for itself: whether, and how, it syncs the library,
     /// and its own microphone and camera.
@@ -519,6 +541,8 @@ final class Preferences {
             "captureBarPosition": data(captureBarPosition), "captureBarHotKey": data(captureBarHotKey),
             "captureBarSize": captureBarSize.rawValue, "captureBarColors": captureBarColors,
             "captureBarLook": captureBarLook.rawValue,
+            "paletteHotKey": data(paletteHotKey), "paletteChoosing": paletteChoosing.rawValue,
+            "paletteRightClick": paletteRightClick,
         ]
     }
 
@@ -602,6 +626,9 @@ final class Preferences {
         captureBarSize = CaptureBarSize(rawValue: string("captureBarSize")) ?? .medium
         captureBarColors = bool("captureBarColors", true)
         captureBarLook = CaptureBarLook(rawValue: string("captureBarLook")) ?? .app
+        paletteHotKey = codable("paletteHotKey", nil as HotKey?)
+        paletteChoosing = PaletteChoosing(rawValue: string("paletteChoosing")) ?? .click
+        paletteRightClick = bool("paletteRightClick", true)
     }
 
     private func save(_ value: Any, _ key: String) {

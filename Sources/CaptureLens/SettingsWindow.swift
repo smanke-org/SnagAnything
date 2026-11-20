@@ -241,6 +241,21 @@ struct CaptureSettings: View {
                 }
             }
             Section {
+                LabeledContent("Show it with") { ShortcutRecorder(hotKey: $prefs.paletteHotKey, action: .palette) }
+                Toggle("Also show it with ⌃⌥⌘-right-click", isOn: $prefs.paletteRightClick)
+                if prefs.paletteRightClick {
+                    PaletteAccessibilityRow()
+                }
+                Picker("Choose a tool", selection: $prefs.paletteChoosing) {
+                    ForEach(PaletteChoosing.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+            } header: {
+                Text("Quick palette")
+            } footer: {
+                Text("A small row of capture tools that opens beside the pointer: Capture Area, Window, Text and Full Screen, and Open Library. Hold ⌥ to switch to Record Area, Window and Screen. Click a tool, press its number, or use the arrow keys and Return; Esc or a click elsewhere closes it. With ⌃⌥⌘-right-click, you can also keep the button down, point at a tool and let go. With hold and release, keep the shortcut down, point at a tool and let go; a quick press leaves the palette open for a click.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section {
                 Toggle("Show the capture bar", isOn: $prefs.showCaptureBar)
                 Picker("Layout", selection: $prefs.captureBarLayout) {
                     ForEach(CaptureBarLayout.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -416,6 +431,7 @@ struct PresetSettings: View {
                 LabeledContent("Capture the same area again") { ShortcutRecorder(hotKey: $prefs.captureAgainHotKey, action: .captureAgain) }
                 LabeledContent("Capture text") { ShortcutRecorder(hotKey: $prefs.captureTextHotKey, action: .captureText) }
                 LabeledContent("Show or hide the capture bar") { ShortcutRecorder(hotKey: $prefs.captureBarHotKey, action: .captureBar) }
+                LabeledContent("Show the quick palette") { ShortcutRecorder(hotKey: $prefs.paletteHotKey, action: .palette) }
             }
         }
         .formStyle(.grouped)

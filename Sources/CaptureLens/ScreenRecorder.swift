@@ -76,7 +76,9 @@ final class ScreenRecorder: NSObject {
     }
 
     /// Picks what to record, then shows the control bar.
-    func begin(_ preset: CapturePreset) async {
+    /// - Parameter target: `.region`, `.window` or `.screen` to pick only that way (the quick
+    ///   palette); `.recording` picks a window, an area or a screen.
+    func begin(_ preset: CapturePreset, target: CaptureMode = .recording) async {
         guard phase == .idle, !CaptureEngine.shared.isBusy else { return }
         if !ScreenAccess.granted {
             ScreenAccess.request()
@@ -88,8 +90,8 @@ final class ScreenRecorder: NSObject {
         do { frozen = try await ScreenGrabber.captureAllScreens() } catch {
             return Notice.shared.show(error: error.localizedDescription)
         }
-        guard let pick = await CaptureOverlay.shared.pick(mode: .recording, fixedSize: CGSize(width: preset.width, height: preset.height),
-                                                          images: frozen) else { return }
+        guard let pick = await CaptureOverlay.shared.pick(mode: target, fixedSize: CGSize(width: preset.width, height: preset.height),
+                                                          images: frozen, recording: true) else { return }
         switch pick {
         case .region(let r, _, let f):
             (region, frame, pickedWindow) = (r, f, nil)

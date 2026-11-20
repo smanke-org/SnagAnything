@@ -140,6 +140,7 @@ final class HotKeyCenter {
         case captureText
         case library
         case captureBar
+        case palette
     }
 
     static let shared = HotKeyCenter()
@@ -156,6 +157,7 @@ final class HotKeyCenter {
         if let key = prefs.captureAgainHotKey { out.append((.captureAgain, key)) }
         if let key = prefs.captureTextHotKey { out.append((.captureText, key)) }
         if let key = prefs.captureBarHotKey { out.append((.captureBar, key)) }
+        if let key = prefs.paletteHotKey { out.append((.palette, key)) }
         for preset in prefs.presets { if let key = preset.hotKey { out.append((.preset(preset.id), key)) } }
         return out
     }
@@ -191,6 +193,7 @@ final class HotKeyCenter {
             case .captureAgain: (id, title, category) = ("captureAgain", self.title(of: action), nil)
             case .captureText: (id, title, category) = ("captureText", self.title(of: action), nil)
             case .captureBar: (id, title, category) = ("captureBar", self.title(of: action), nil)
+            case .palette: (id, title, category) = ("palette", self.title(of: action), nil)
             case .preset(let uuid):
                 (id, title, category) = ("preset-\(uuid.uuidString)", prefs.preset(uuid)?.name ?? "Preset", "Presets")
             }
@@ -208,6 +211,7 @@ final class HotKeyCenter {
         case "captureAgain": action = .captureAgain
         case "captureText": action = .captureText
         case "captureBar": action = .captureBar
+        case "palette": action = .palette
         default:
             guard id.hasPrefix("preset-"), let uuid = UUID(uuidString: String(id.dropFirst("preset-".count))),
                   prefs.preset(uuid) != nil else { return "SnagAnything has no shortcut called \(id)." }
@@ -236,6 +240,7 @@ final class HotKeyCenter {
         case .captureAgain: return prefs.captureAgainHotKey
         case .captureText: return prefs.captureTextHotKey
         case .captureBar: return prefs.captureBarHotKey
+        case .palette: return prefs.paletteHotKey
         case .preset(let uuid): return prefs.preset(uuid)?.hotKey
         }
     }
@@ -248,6 +253,7 @@ final class HotKeyCenter {
         case .captureAgain: prefs.captureAgainHotKey = key
         case .captureText: prefs.captureTextHotKey = key
         case .captureBar: prefs.captureBarHotKey = key
+        case .palette: prefs.paletteHotKey = key
         case .preset(let uuid):
             guard var preset = prefs.preset(uuid) else { return }
             preset.hotKey = key
@@ -261,6 +267,7 @@ final class HotKeyCenter {
         case .captureAgain: return "Capture the same area again"
         case .captureText: return "Capture text"
         case .captureBar: return "Show or hide the capture bar"
+        case .palette: return "Show the quick palette"
         case .preset(let uuid): return Preferences.shared.preset(uuid)?.name ?? "a preset"
         }
     }
@@ -285,12 +292,18 @@ final class HotKeyCenter {
     private func installHandlerOnce() {
         guard !installed else { return }
         installed = true
-        var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        InstallEventHandler(GetApplicationEventTarget(), hotKeyHandler, 1, &spec, nil, nil)
+        var specs = [EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed)),
+                     EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyReleased))]
+        InstallEventHandler(GetApplicationEventTarget(), hotKeyHandler, 2, &specs, nil, nil)
     }
 
-    fileprivate func fire(_ id: UInt32) {
+    fileprivate func fire(_ id: UInt32, released: Bool) {
         guard let action = actions[id] else { return }
+        if released {
+            // Only the palette cares when its keys come up (hold and release).
+            if action == .palette { QuickPalette.shared.hotKeyReleased() }
+            return
+        }
         perform?(action)
     }
 }
@@ -301,7 +314,8 @@ private func hotKeyHandler(_ next: EventHandlerCallRef?, _ event: EventRef?, _ d
                                    nil, MemoryLayout<EventHotKeyID>.size, nil, &id)
     guard status == noErr else { return status }
     let value = id.id
+    let released = GetEventKind(event) == UInt32(kEventHotKeyReleased)
     // Carbon delivers hot keys on the main thread's event loop.
-    MainActor.assumeIsolated { HotKeyCenter.shared.fire(value) }
+    MainActor.assumeIsolated { HotKeyCenter.shared.fire(value, released: released) }
     return noErr
 }

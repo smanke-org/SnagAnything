@@ -151,6 +151,11 @@ enum AgentCommands {
                      example: "snag capture start --mode screen --delay 3 --json") { args in
             try startCapture(args)
         },
+        AgentCommand(name: "capture palette", summary: "Show the quick palette of capture tools beside the pointer, as its shortcut does. The person picks a tool; hold ⌥ for video tools.",
+                     params: [], example: "snag capture palette --json") { _ in
+            QuickPalette.shared.show()
+            return ["shown": QuickPalette.shared.isShown, "waitsForPerson": true]
+        },
     ]
 
     // MARK: Finding captures
