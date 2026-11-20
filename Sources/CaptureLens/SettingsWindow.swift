@@ -252,7 +252,7 @@ struct CaptureSettings: View {
             } header: {
                 Text("Quick palette")
             } footer: {
-                Text("A small row of capture tools that opens beside the pointer: Capture Area, Window, Text and Full Screen, and Open Library. Hold ⌥ to switch to Record Area, Window and Screen. Click a tool, press its number, or use the arrow keys and Return; Esc or a click elsewhere closes it. With ⌃⌥⌘-right-click, you can also keep the button down, point at a tool and let go. With hold and release, keep the shortcut down, point at a tool and let go; a quick press leaves the palette open for a click.")
+                Text("A small row of capture tools that opens beside the pointer: Capture Area, Window, Text and Full Screen, and Open Library. Hold ⌥ to switch to Record Area, Window and Screen, or Record…, which opens the Record window first. Click a tool, press its number, or use the arrow keys and Return; Esc or a click elsewhere closes it. With ⌃⌥⌘-right-click, you can also keep the button down, point at a tool and let go. With hold and release, keep the shortcut down, point at a tool and let go; a quick press leaves the palette open for a click.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section {

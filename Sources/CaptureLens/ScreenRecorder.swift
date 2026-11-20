@@ -35,6 +35,8 @@ final class ScreenRecorder: NSObject {
     @ObservationIgnored private var region: ScreenRegion?
     @ObservationIgnored private var frame: CGRect = .zero
     @ObservationIgnored private var pickedWindow: ScreenWindow?
+    /// The Record window is up before anything was picked (the quick palette's Record Settings).
+    @ObservationIgnored private var pickAfterSettings = false
     @ObservationIgnored private var windows: [ScreenWindow] = []
     @ObservationIgnored private(set) var preset: CapturePreset?
     @ObservationIgnored private var stream: SCStream?
@@ -85,13 +87,42 @@ final class ScreenRecorder: NSObject {
             guard ScreenAccess.granted else { return ScreenAccess.explainDenied() }
         }
         self.preset = preset
+        pickAfterSettings = false
+        guard await pickTarget(target, preset: preset) else { return }
+        note = nil
+        phase = .ready
+        showOutline()
+        showPanel()
+        if Preferences.shared.recordCamera { await showCamera() }
+    }
+
+    /// The quick palette's Record Settings: the Record window first; Record then asks what
+    /// to record (a window, an area, or Return for the screen) and counts down.
+    func beginWithSettings(_ preset: CapturePreset) async {
+        guard phase == .idle, !CaptureEngine.shared.isBusy else { return }
+        if !ScreenAccess.granted {
+            ScreenAccess.request()
+            guard ScreenAccess.granted else { return ScreenAccess.explainDenied() }
+        }
+        self.preset = preset
+        pickAfterSettings = true
+        (region, frame, pickedWindow) = (nil, .zero, nil)
+        note = nil
+        phase = .ready
+        showPanel()
+    }
+
+    /// Asks what to record and keeps it in `region`, `frame` and `pickedWindow`. False if
+    /// cancelled or too small.
+    private func pickTarget(_ target: CaptureMode, preset: CapturePreset) async -> Bool {
         windows = ScreenWindow.onScreen()
         let frozen: [CGDirectDisplayID: CGImage]
         do { frozen = try await ScreenGrabber.captureAllScreens() } catch {
-            return Notice.shared.show(error: error.localizedDescription)
+            Notice.shared.show(error: error.localizedDescription)
+            return false
         }
         guard let pick = await CaptureOverlay.shared.pick(mode: target, fixedSize: CGSize(width: preset.width, height: preset.height),
-                                                          images: frozen, recording: true) else { return }
+                                                          images: frozen, recording: true) else { return false }
         switch pick {
         case .region(let r, _, let f):
             (region, frame, pickedWindow) = (r, f, nil)
@@ -99,19 +130,18 @@ final class ScreenRecorder: NSObject {
             (region, frame, pickedWindow) = (ScreenRegion(displayID: display, rect: CGRect(origin: .zero, size: f.size)), f, nil)
         case .window(let w):
             // The window's part of its screen; the recording follows that area.
-            guard let screen = NSScreen.screens.max(by: { $0.frame.intersection(w.frame).area < $1.frame.intersection(w.frame).area }) else { return }
+            guard let screen = NSScreen.screens.max(by: { $0.frame.intersection(w.frame).area < $1.frame.intersection(w.frame).area }) else { return false }
             let visible = w.frame.intersection(screen.frame)
             region = ScreenRegion(displayID: screen.displayID,
                                   rect: CGRect(x: visible.minX - screen.frame.minX, y: screen.frame.maxY - visible.maxY,
                                                width: visible.width, height: visible.height))
             (frame, pickedWindow) = (visible, w)
         }
-        guard frame.width >= 32, frame.height >= 32 else { return Notice.shared.show(error: "That area is too small to record") }
-        note = nil
-        phase = .ready
-        showOutline()
-        showPanel()
-        if Preferences.shared.recordCamera { await showCamera() }
+        guard frame.width >= 32, frame.height >= 32 else {
+            Notice.shared.show(error: "That area is too small to record")
+            return false
+        }
+        return true
     }
 
     /// Starts recording after a short countdown.
@@ -120,6 +150,16 @@ final class ScreenRecorder: NSObject {
         phase = .countingDown
         Task {
             let prefs = Preferences.shared
+            if pickAfterSettings {
+                // The Record window came first: now ask what to record.
+                pickAfterSettings = false
+                panel?.orderOut(nil)
+                guard let preset, await pickTarget(.recording, preset: preset), phase == .countingDown else { return cancel() }
+                showOutline()
+                panel?.place(near: frame)
+                panel?.orderFrontRegardless()
+                if prefs.recordCamera { await showCamera() }
+            }
             if prefs.recordMicrophone, !(await AVCaptureDevice.requestAccess(for: .audio)) {
                 prefs.recordMicrophone = false
                 note = "SnagAnything isn't allowed to use the microphone (System Settings › Privacy & Security › Microphone)."
@@ -394,6 +434,8 @@ final class ScreenRecorder: NSObject {
             note = "SnagAnything isn't allowed to use the camera (System Settings › Privacy & Security › Camera)."
             return
         }
+        // Record Settings before a pick: the bubble comes once there's an area.
+        guard frame != .zero else { return }
         camera.show(in: frame)
     }
 
@@ -413,7 +455,7 @@ final class ScreenRecorder: NSObject {
     private func showPanel() {
         let panel = FloatingPanel(title: "Record", size: CGSize(width: 400, height: 360), resizable: false)
         panel.host(RecordingBar())
-        panel.place(near: frame)
+        panel.place(near: frame == .zero ? nil : frame)
         panel.orderFrontRegardless()
         panel.makeKey()
         self.panel = panel

@@ -120,7 +120,8 @@ enum Help {
             .keys([
                 ("⌃⌥⌘-right-click", "Open it; or hold the button, point at a tool and let go"),
                 ("1–5", "Capture Area, Capture Window, Capture Text, Capture Full Screen, Open Library"),
-                ("Hold ⌥", "Switch to Record Area, Record Window, Record Screen and Open Library"),
+                ("Hold ⌥", "Switch to Record Area, Record Window, Record Screen, Record… and Open Library"),
+                ("Record…", "Opens the Record window first: choose sound, camera and the rest, click Record, then click a window, drag an area or press Return for the screen"),
                 ("← → and Return", "Pick a tool from the keyboard"),
                 ("Esc or click elsewhere", "Close the palette"),
             ]),

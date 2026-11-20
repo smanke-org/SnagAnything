@@ -13,13 +13,13 @@ final class QuickPalette: NSObject, NSWindowDelegate {
 
     enum Tool: Int, CaseIterable, Identifiable {
         case captureArea, captureWindow, captureText, captureScreen
-        case recordArea, recordWindow, recordScreen
+        case recordArea, recordWindow, recordScreen, recordSettings
         case library
 
         var id: Int { rawValue }
 
         static let photo: [Tool] = [.captureArea, .captureWindow, .captureText, .captureScreen, .library]
-        static let video: [Tool] = [.recordArea, .recordWindow, .recordScreen, .library]
+        static let video: [Tool] = [.recordArea, .recordWindow, .recordScreen, .recordSettings, .library]
 
         var title: String {
             switch self {
@@ -30,6 +30,7 @@ final class QuickPalette: NSObject, NSWindowDelegate {
             case .recordArea: "Record Area"
             case .recordWindow: "Record Window"
             case .recordScreen: "Record Screen"
+            case .recordSettings: "Record… (Record window first)"
             case .library: "Open Library"
             }
         }
@@ -41,11 +42,12 @@ final class QuickPalette: NSObject, NSWindowDelegate {
             case .captureWindow, .recordWindow: CaptureMode.window.symbol
             case .captureScreen, .recordScreen: CaptureMode.screen.symbol
             case .captureText: "text.viewfinder"
+            case .recordSettings: "record.circle"
             case .library: "photo.on.rectangle"
             }
         }
 
-        var isVideo: Bool { self == .recordArea || self == .recordWindow || self == .recordScreen }
+        var isVideo: Bool { [.recordArea, .recordWindow, .recordScreen].contains(self) }
     }
 
     @Observable @MainActor
@@ -143,6 +145,7 @@ final class QuickPalette: NSObject, NSWindowDelegate {
         case .recordArea: record(.region)
         case .recordWindow: record(.window)
         case .recordScreen: record(.screen)
+        case .recordSettings: record(nil)
         }
     }
 
@@ -152,7 +155,8 @@ final class QuickPalette: NSObject, NSWindowDelegate {
         Preferences.shared.presets.first { $0.mode == mode && $0.delay == 0 } ?? CapturePreset(name: mode.title, mode: mode)
     }
 
-    private static func record(_ target: CaptureMode) {
+    /// - Parameter target: nil opens the Record window first, then asks what to record.
+    private static func record(_ target: CaptureMode?) {
         let recorder = ScreenRecorder.shared
         // One under way already: the palette's video tools stop it, like the record shortcut.
         guard recorder.phase == .idle else {
@@ -161,7 +165,9 @@ final class QuickPalette: NSObject, NSWindowDelegate {
         }
         let preset = Preferences.shared.presets.first { $0.mode == .recording }
             ?? CapturePreset(name: CaptureMode.recording.title, mode: .recording)
-        Task { await recorder.begin(preset, target: target) }
+        Task {
+            if let target { await recorder.begin(preset, target: target) } else { await recorder.beginWithSettings(preset) }
+        }
     }
 
     // MARK: - Keys

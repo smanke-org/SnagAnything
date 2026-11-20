@@ -19,7 +19,7 @@ SnagAnything also:
 - **Captures long pages** by stitching a scrolling area into one tall picture, and **records how-tos**: a
   capture at every click, each step numbered and named from what you clicked, ready to become a guide.
 - **Opens a quick palette at the pointer** with ⌃⌥⌘-right-click or its own shortcut: Capture Area, Window, Text or Full Screen, or
-  Open Library; hold ⌥ and it switches to Record Area, Window and Screen.
+  Open Library; hold ⌥ and it switches to Record Area, Window and Screen, or Record…, which opens the Record window first.
 - **Makes guides**: lay captures out as a step-by-step guide, reference sheet or timeline, as a PDF or picture,
   and export many captures at once with the same format, size and frame.
 - **Keeps the pointer separate**, so you can show, hide, move or resize it after the capture.
