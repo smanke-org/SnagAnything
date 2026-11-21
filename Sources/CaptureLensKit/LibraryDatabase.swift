@@ -254,6 +254,16 @@ public final class LibraryDatabase: @unchecked Sendable {
         (try? rows("SELECT key FROM kv WHERE substr(key, 1, ?) = ?", [prefix.count, prefix]) { Self.text($0, 0) }) ?? []
     }
 
+    /// Bytes of the pictures and details whose ids have a key `prefix + id` (the ones sent
+    /// to the cloud), as stored here: close to what the cloud holds, since both are sealed.
+    public func storedBytes(markedBy prefix: String) -> Int64 {
+        let sql = """
+            SELECT COALESCE(SUM(length(i.image)), 0) + COALESCE(SUM(length(it.meta)), 0)
+            FROM images i JOIN kv ON kv.key = ? || i.id LEFT JOIN items it ON it.id = i.id
+            """
+        return Int64((try? scalarInt(sql, [prefix])) ?? 0)
+    }
+
     public func removeValues(withPrefix prefix: String) throws {
         try run("DELETE FROM kv WHERE substr(key, 1, ?) = ?", [prefix.count, prefix])
     }

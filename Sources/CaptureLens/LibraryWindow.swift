@@ -952,9 +952,37 @@ struct LibrarySidebar: View {
             if compact { rail } else { list }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .safeAreaInset(edge: .bottom, spacing: 0) { iCloudFooter }
+        .task(id: "\(store.items.count)|\(LibrarySync.shared.lastSynced?.timeIntervalSince1970 ?? 0)|\(LibrarySync.shared.isActive)") {
+            iCloudBytes = LibrarySync.shared.iCloudBytes()
+        }
         .onGeometryChange(for: Bool.self) { $0.size.width < Self.compactBelow } action: { compact = $0 }
         // Noted for the layout other Macs follow.
         .onGeometryChange(for: Double.self) { Double($0.size.width.rounded()) } action: { LibraryLayout.sidebarWidth = $0 }
+    }
+
+    /// How much iCloud storage the library uses, while it syncs through iCloud.
+    @State private var iCloudBytes: Int64?
+
+    @ViewBuilder private var iCloudFooter: some View {
+        if let bytes = iCloudBytes {
+            let size = ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+            Group {
+                if compact {
+                    Label(size, systemImage: "icloud").labelStyle(.iconOnly)
+                        .frame(maxWidth: .infinity)
+                } else {
+                    Label("\(size) in iCloud", systemImage: "icloud")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .help("About \(size) of your iCloud storage holds this library’s captures")
+        }
     }
 
     private var list: some View {

@@ -50,6 +50,20 @@ final class LibrarySync {
 
     private var db: LibraryDatabase? { LibraryStore.shared.db }
 
+    /// About how much of the person's iCloud storage the library takes: every capture this
+    /// Mac knows went up, plus the movies. Nil while iCloud sync is off.
+    func iCloudBytes() -> Int64? {
+        guard isActive, let db else { return nil }
+        var total = db.storedBytes(markedBy: Keys.imageSentPrefix)
+        for key in db.keys(withPrefix: Keys.videoSentPrefix) where db.string(forKey: key) == "1" {
+            guard let id = UUID(uuidString: String(key.dropFirst(Keys.videoSentPrefix.count))),
+                  let file = VideoStore.shared.storedFile(id)?.url,
+                  let size = try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize else { continue }
+            total += Int64(size)
+        }
+        return total
+    }
+
     // MARK: - Lifecycle
 
     /// When the sync engine starts, and whenever sync, the key or the library setting change.
